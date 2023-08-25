@@ -1,6 +1,6 @@
 import { Aluguel } from "./aluguel";
 import { Bike } from "./bike";
-import { Usuario } from "./usuario";
+import { Usuario } from "./users";
 
 export class Sistema{
 
