@@ -2,60 +2,131 @@ import { Bike } from "./bike";
 import { Rent } from "./rent";
 import { User } from "./user";
 import crypto from 'crypto'
+import * as bcrypt from 'bcrypt'
 
 export class App {
     users: User[] = []
     bikes: Bike[] = []
     rents: Rent[] = []
 
+    private async hashPassword(password: string): Promise<string> {
+        const saltRounds = 10; // O número de rounds de "sal" para a criptografia (recomendado >= 10)
+        const salt = await bcrypt.genSalt(saltRounds);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        return hashedPassword;
+      }
+      
     findUser(email: string): User {
         return this.users.find(user => user.email === email)
     }
 
-    findBike(bikeID: string): Bike{
-        return this.bikes.find(bike => bike.id === bikeID)
-    }
-    
-    
-    registerUser(user: User): void {
+    registerUser(user: User): string {
         for (const rUser of this.users) {
             if (rUser.email === user.email) {
                 throw new Error('Duplicate user.')
             }
         }
-        user.id = crypto.randomUUID()
+        const newId = crypto.randomUUID()
+        this.hashPassword(user.password)
+            .then((hashedPassword)=>{
+                console.log('Password: ', hashedPassword)
+                user.password = hashedPassword
+            })
+            .catch((error) => {
+                console.log('Could not cryptograph password', error)
+            })
+        user.id = newId
         this.users.push(user)
+        return newId
     }
 
-    registerBike(bike: Bike):void{
-        bike.id = crypto.randomUUID()
+    registerBike(bike: Bike): string {
+        const newId = crypto.randomUUID()
+        bike.id = newId
         this.bikes.push(bike)
+        return newId
     }
-    //registerBike
-    removeUser(email: string){
-        const indexRemove = this.users.findIndex(user => user.email === email)
-        this.users.splice(indexRemove, 1)
+
+    loginUser(email: string, password: string): void{
+        const user = this.users.find(rUser => rUser.email === email)
+        if(!user){
+            throw new Error('User does not exist')
+        }
+        if(user.password != password){
+            throw new Error('Invalid password')
+        }
+        else{
+            console.log('Welcome ', user.name)
+        }
     }
-    rentBike( bikeID : string, userEmail: string, startDate: Date, endDate: Date, ): void{
-        //recuperar bike
-        const bike = this.findBike(bikeID)
 
-        //recuperar ususario
-        const user = this.findUser(userEmail)
-
-        //array só com as reservas da bike
-        const array: Rent[] = this.rents.filter(rRent => rRent.bike === bike)
-        const newRent = Rent.create(array, bike, user, startDate, endDate) //tenta criar o rent com o array e as info das reservas
-
-        this.rents.push(newRent) //adiciona o rent no array das reservas
-
+    removeUser(email: string): void {
+        const userIndex = this.users.findIndex(user => user.email === email)
+        if (userIndex !== -1) {
+            this.users.splice(userIndex, 1)
+            return
+        }
+        throw new Error('User does not exist.')
     }
-    returnBike(bikeID: string, returnDate: Date): void{
-        const bike = this.findBike(bikeID)
-        const array: Rent[] = this.rents.filter(rRent => rRent.bike === bike)
-        const rent = array.find(rent => rent.dateReturned == undefined)
-        rent.dateReturned = returnDate
-    }
-    //return bike
     
+    rentBike(bikeId: string, userEmail: string, startDate: Date, endDate: Date): void {
+        const bike = this.bikes.find(bike => bike.id === bikeId)
+        if (!bike) {
+            throw new Error('Bike not found.')
+        }
+        const user = this.findUser(userEmail)
+        if (!user) {
+            throw new Error('User not found.')
+        }
+        const bikeRents = this.rents.filter(rent =>
+            rent.bike.id === bikeId && !rent.dateReturned
+        )
+        const newRent = Rent.create(bikeRents, bike, user, startDate, endDate)
+        this.rents.push(newRent)
+    }
+
+    returnBike(bikeId: string, userEmail: string) {
+        const today = new Date()
+        const rent = this.rents.find(rent => 
+            rent.bike.id === bikeId &&
+            rent.user.email === userEmail &&
+            rent.dateReturned === undefined &&
+            rent.dateFrom <= today
+        )
+        if (rent) {
+            rent.dateReturned = today
+            return
+        }
+        throw new Error('Rent not found.')
+    }
+    listRents():void {
+        this.rents.forEach(rent => console.log(
+            "Bike rented: ", rent.bike.name,
+            "\nUser: ", rent.user.name,
+            "\nFrom: ", rent.dateFrom.toString(),
+            "\nTo: ", rent.dateTo.toString(),
+            "\nReturned: ", rent.dateReturned!=undefined
+        ))
+    }
+    
+    listUsers():void{
+        this.users.forEach(user => console.log(
+            "Username: ", user.name,
+            "\nE-mail: ", user.email,
+            "\nUser ID: ", user.id, "\n",
+            user.password
+        ))
+    }
+
+    listBikes():void{
+        this.bikes.forEach(bike => console.log(
+            "Name: ", bike.name,
+            "\nType: ", bike.type,
+            "\nbodySize: ", bike.bodySize, "m",
+            "\nmaxLoad: ", bike.maxLoad,
+            "\nrate: ", bike.rate,
+            "\nDescription: ", bike.description,
+            "\nratings: ", bike.ratings,
+        ))
+    }
 }
