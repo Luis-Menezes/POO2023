@@ -2,60 +2,98 @@ import { Bike } from "./bike";
 import { Rent } from "./rent";
 import { User } from "./user";
 import crypto from 'crypto'
+import { Crypt } from "./crypt";
 
 export class App {
     users: User[] = []
     bikes: Bike[] = []
     rents: Rent[] = []
+    crypt: Crypt = new Crypt()
 
+    
     findUser(email: string): User {
         return this.users.find(user => user.email === email)
     }
 
-    findBike(bikeID: string): Bike{
-        return this.bikes.find(bike => bike.id === bikeID)
-    }
-    
-    
-    registerUser(user: User): void {
+    async registerUser(user: User): Promise<string> {
         for (const rUser of this.users) {
             if (rUser.email === user.email) {
                 throw new Error('Duplicate user.')
             }
         }
-        user.id = crypto.randomUUID()
+        const newId = crypto.randomUUID()
+        user.id = newId
+        const encryptedPassword = await this.crypt.encrypt(user.password)
+        user.password = encryptedPassword
         this.users.push(user)
+        return newId
     }
 
-    registerBike(bike: Bike):void{
-        bike.id = crypto.randomUUID()
+    registerBike(bike: Bike): string {
+        const newId = crypto.randomUUID()
+        bike.id = newId
         this.bikes.push(bike)
+        return newId
     }
-    //registerBike
-    removeUser(email: string){
-        const indexRemove = this.users.findIndex(user => user.email === email)
-        this.users.splice(indexRemove, 1)
+
+    async authenticate(email: string, password: string): Promise<boolean>{
+        const user = this.users.find(rUser => rUser.email === email)
+        if(!user) throw new Error('User does not exist')
+        return await this.crypt.compare(password, user.password)
     }
-    rentBike( bikeID : string, userEmail: string, startDate: Date, endDate: Date, ): void{
-        //recuperar bike
-        const bike = this.findBike(bikeID)
 
-        //recuperar ususario
-        const user = this.findUser(userEmail)
-
-        //array só com as reservas da bike
-        const array: Rent[] = this.rents.filter(rRent => rRent.bike === bike)
-        const newRent = Rent.create(array, bike, user, startDate, endDate) //tenta criar o rent com o array e as info das reservas
-
-        this.rents.push(newRent) //adiciona o rent no array das reservas
-
+    removeUser(email: string): void {
+        const userIndex = this.users.findIndex(user => user.email === email)
+        if (userIndex !== -1) {
+            this.users.splice(userIndex, 1)
+            return
+        }
+        throw new Error('User does not exist.')
     }
-    returnBike(bikeID: string, returnDate: Date): void{
-        const bike = this.findBike(bikeID)
-        const array: Rent[] = this.rents.filter(rRent => rRent.bike === bike)
-        const rent = array.find(rent => rent.dateReturned == undefined)
-        rent.dateReturned = returnDate
-    }
-    //return bike
     
+    rentBike(bikeId: string, userEmail: string): void {
+        const bike = this.bikes.find(bike => bike.id === bikeId)
+        if (!bike) {
+            throw new Error('Bike not found.')
+        }
+        const user = this.findUser(userEmail)
+        if (!user) {
+            throw new Error('User not found.')
+        }
+        if(!bike.available){
+            throw new Error('Bike not available')
+        }
+        const newRent = new Rent(bike, user, new Date())
+        newRent.bike.available = false
+        this.rents.push(newRent)
+
+    }
+
+    returnBike(bikeId: string, userEmail: string): number {
+        const now = new Date()
+        const rent = this.rents.find(rent => 
+            rent.bike.id === bikeId &&
+            rent.user.email === userEmail &&
+            rent.bike.available === false
+        )
+        if (!rent) {
+            throw new Error('Rent not found.')
+        }
+        rent.dateReturned = now
+        rent.bike.available = true
+        const diff = (now.getTime() - rent.dateFrom.getTime())/3600000
+        return diff*rent.bike.rate
+    }
+
+    listRents(): Rent[] {
+        return this.rents.slice()
+    }
+    
+    listUsers(): User[]{
+        return this.users.slice()
+    }
+
+    listBikes():Bike[]{
+        return this.bikes.slice()
+    }
 }
