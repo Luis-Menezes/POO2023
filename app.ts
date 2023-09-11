@@ -99,34 +99,15 @@ export class App {
         }
         throw new Error('Rent not found.')
     }
-    listRents():void {
-        this.rents.forEach(rent => console.log(
-            "Bike rented: ", rent.bike.name,
-            "\nUser: ", rent.user.name,
-            "\nFrom: ", rent.dateFrom.toString(),
-            "\nTo: ", rent.dateTo.toString(),
-            "\nReturned: ", rent.dateReturned!=undefined
-        ))
+    listRents(): Rent[] {
+        return this.rents.slice()
     }
     
-    listUsers():void{
-        this.users.forEach(user => console.log(
-            "Username: ", user.name,
-            "\nE-mail: ", user.email,
-            "\nUser ID: ", user.id, "\n",
-            user.password
-        ))
+    listUsers(): User[]{
+        return this.users.slice()
     }
 
-    listBikes():void{
-        this.bikes.forEach(bike => console.log(
-            "Name: ", bike.name,
-            "\nType: ", bike.type,
-            "\nbodySize: ", bike.bodySize, "m",
-            "\nmaxLoad: ", bike.maxLoad,
-            "\nrate: ", bike.rate,
-            "\nDescription: ", bike.description,
-            "\nratings: ", bike.ratings,
-        ))
+    listBikes():Bike[]{
+        return this.bikes.slice()
     }
 }
