@@ -15,6 +15,11 @@ export class App {
         return this.users.find(user => user.email === email)
     }
 
+    updateLocation(id: string): void{
+        const bike = this.bikes.find(bike=> bike.id === id)
+        bike.location.getlocation()
+    }
+
     async registerUser(user: User): Promise<string> {
         for (const rUser of this.users) {
             if (rUser.email === user.email) {
